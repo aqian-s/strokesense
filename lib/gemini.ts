@@ -14,11 +14,13 @@ export function modelName(): string {
 }
 
 /** Start a resumable upload session. Returns the one-time upload URL the browser can push bytes to. */
-export async function startUpload(displayName: string, mimeType: string, sizeBytes: number) {
+export async function startUpload(displayName: string, mimeType: string, sizeBytes: number, origin?: string | null) {
   const res = await fetch(`${BASE}/upload/v1beta/files`, {
     method: "POST",
     headers: {
       "x-goog-api-key": apiKey(),
+      // Google ties the upload session to this origin for CORS, so the browser can upload directly.
+      ...(origin ? { Origin: origin } : {}),
       "X-Goog-Upload-Protocol": "resumable",
       "X-Goog-Upload-Command": "start",
       "X-Goog-Upload-Header-Content-Length": String(sizeBytes),

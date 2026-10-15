@@ -10,7 +10,8 @@ export async function POST(req: Request) {
   try {
     const { name, mimeType, size } = await req.json();
     if (!mimeType || !size) return NextResponse.json({ error: "Missing file info" }, { status: 400 });
-    const uploadUrl = await startUpload(String(name || "swim-video"), String(mimeType), Number(size));
+    const origin = req.headers.get("origin") || new URL(req.url).origin;
+    const uploadUrl = await startUpload(String(name || "swim-video"), String(mimeType), Number(size), origin);
     return NextResponse.json({ uploadUrl });
   } catch (e: unknown) {
     return NextResponse.json({ error: (e as Error).message }, { status: 500 });
