@@ -239,7 +239,7 @@ export default function NewSession({ onCreated }: { onCreated: (s: Session) => v
                 <label>Start<input type="range" min={0} max={Math.floor(duration)} step={1} value={Math.floor(clip[0])} disabled={busy} onChange={(e) => setStart(Number(e.target.value))} /></label>
                 <label>End<input type="range" min={0} max={Math.ceil(duration)} step={1} value={Math.ceil(clip[1])} disabled={busy} onChange={(e) => setEnd(Number(e.target.value))} /></label>
               </div>
-              <div className="hint">Drag to narrow the window to the lap that matters. The whole file still uploads, but the coach watches only this part — faster and cheaper.</div>
+              <div className="hint">Drag to narrow the window to the lap that matters. The whole file still uploads, but the coach watches only this part — faster and more convenient.</div>
             </div>
           )}
         </div>
