@@ -45,7 +45,23 @@ export async function getFile(name: string) {
   return (await res.json()) as { name: string; uri: string; state: string; mimeType: string; error?: unknown };
 }
 
-type Part = { text?: string; fileData?: { fileUri: string; mimeType: string } };
+type Part = {
+  text?: string;
+  fileData?: { fileUri: string; mimeType: string };
+  videoMetadata?: { startOffset?: string; endOffset?: string };
+};
+
+/** Builds the video part, optionally limited to a time window (seconds). */
+export function videoPart(fileUri: string, mimeType: string, clipStart?: number, clipEnd?: number): Part {
+  const part: Part = { fileData: { fileUri, mimeType } };
+  if (typeof clipStart === "number" || typeof clipEnd === "number") {
+    part.videoMetadata = {};
+    if (typeof clipStart === "number" && clipStart > 0) part.videoMetadata.startOffset = `${Math.floor(clipStart)}s`;
+    if (typeof clipEnd === "number" && clipEnd > 0) part.videoMetadata.endOffset = `${Math.ceil(clipEnd)}s`;
+    if (!Object.keys(part.videoMetadata).length) delete part.videoMetadata;
+  }
+  return part;
+}
 export type Content = { role: "user" | "model"; parts: Part[] };
 
 // Models to try, in order. The first is whatever GEMINI_MODEL is set to.
@@ -124,6 +140,7 @@ You are watching a video of a swimmer. Be specific, honest and encouraging. Refe
 (timestamps, body position, arm path, kick, breathing, head position, rotation, timing) rather than generic advice.
 If the video quality, angle, or length limits what you can judge, say so briefly and work with what is visible.
 Never invent details you cannot see. Keep language clear for a swimmer or parent, not a scientist.
+When the video is clipped to a window, timestamps you report are relative to the full video (the same numbers the swimmer sees on their player).
 Do not manufacture problems: if the swimming is technically sound for the swimmer's level, say so, set noMajorIssues to true,
 leave issues empty (or include only genuinely minor refinements marked "low"), and still offer useful drills for maintenance or speed.`;
 

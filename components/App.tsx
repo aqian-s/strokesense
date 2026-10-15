@@ -2,6 +2,8 @@
 
 import { useEffect, useState } from "react";
 import { loadSessions, saveSessions, type Session } from "@/lib/storage";
+import { deleteVideo } from "@/lib/videoStore";
+import { EXAMPLE_SESSIONS, EXAMPLES_SEEDED_KEY } from "@/lib/examples";
 import NewSession from "./NewSession";
 import SessionView from "./SessionView";
 
@@ -15,7 +17,16 @@ export default function App() {
   const [dark, setDark] = useState(false);
 
   useEffect(() => {
-    setSessions(loadSessions());
+    let list = loadSessions();
+    try {
+      // First visit: show the bundled sample reviews so the app isn't empty.
+      if (!localStorage.getItem(EXAMPLES_SEEDED_KEY)) {
+        list = [...list, ...EXAMPLE_SESSIONS].sort((a, b) => b.createdAt - a.createdAt);
+        saveSessions(list);
+        localStorage.setItem(EXAMPLES_SEEDED_KEY, "1");
+      }
+    } catch {}
+    setSessions(list);
     setLoaded(true);
     try {
       setDark(localStorage.getItem(THEME_KEY) === "dark");
@@ -45,6 +56,7 @@ export default function App() {
   function remove(id: string) {
     if (!confirm("Delete this session? This can't be undone.")) return;
     persist(sessions.filter((s) => s.id !== id));
+    deleteVideo(id);
     if (activeId === id) setActiveId(null);
   }
 
@@ -82,6 +94,7 @@ export default function App() {
               <div className="meta">
                 <b>{s.title}</b>
                 <span>
+                  {s.example ? "sample · " : ""}
                   {new Date(s.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   {" · "}
                   {s.analysis?.stroke || "pending"}
@@ -107,7 +120,7 @@ export default function App() {
         </div>
         <div className="content">
           {active ? (
-            <SessionView key={active.id} session={active} onChange={upsert} />
+            <SessionView key={active.id} session={active} sessions={sessions} onChange={upsert} />
           ) : (
             <NewSession onCreated={(s) => { upsert(s); setActiveId(s.id); }} />
           )}

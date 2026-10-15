@@ -12,6 +12,7 @@ export type Analysis = {
   plan: { week: string; focus: string }[];
 };
 export type Message = { role: "user" | "assistant"; text: string; at: number };
+export type Comparison = { withId: string; withTitle: string; text: string; at: number };
 export type Session = {
   id: string;
   title: string;
@@ -20,9 +21,15 @@ export type Session = {
   fileUri: string;
   mimeType: string;
   prompt: string;
+  strokeHint?: string;
+  clipStart?: number; // seconds — analysis window inside the uploaded video
+  clipEnd?: number;
+  hasLocalVideo?: boolean; // the video blob is stored in this browser (IndexedDB)
+  example?: boolean; // bundled sample review, not a real upload
   thumb?: string; // small JPEG data URL
   analysis: Analysis | null;
   messages: Message[];
+  comparison?: Comparison;
 };
 
 const KEY = "strokesense.sessions.v1";

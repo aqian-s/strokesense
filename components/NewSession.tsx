@@ -1,18 +1,26 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { newId, type Session, type Analysis } from "@/lib/storage";
+import { putVideo } from "@/lib/videoStore";
 
 export const GENERAL_REVIEW = "General technique review";
 
-const SUGGESTIONS = [
-  GENERAL_REVIEW,
-  "Why does my freestyle feel slow?",
-  "Check my breathing and head position",
-  "Is my kick helping or hurting?",
-  "Catch and pull — am I dropping my elbow?",
-  "Are my hips sinking?",
-];
+const STROKES = ["Not sure", "Freestyle", "Backstroke", "Breaststroke", "Butterfly"];
+
+const SUGGESTIONS: Record<string, string[]> = {
+  "Not sure": [GENERAL_REVIEW, "What stroke am I swimming and how does it look?", "Why do I feel slow?", "Check my breathing and head position", "Is my kick helping or hurting?"],
+  Freestyle: [GENERAL_REVIEW, "Why does my freestyle feel slow?", "Check my breathing and head position", "Is my kick helping or hurting?", "Catch and pull — am I dropping my elbow?", "Are my hips sinking?"],
+  Backstroke: [GENERAL_REVIEW, "Are my hips sinking or snaking?", "Is my hand entering pinky-first?", "Check my head position and how still it stays", "Is my kick breaking the surface too much?"],
+  Breaststroke: [GENERAL_REVIEW, "Is my kick timing right?", "Am I pulling too wide?", "Is my glide long enough?", "Check my head and breathing"],
+  Butterfly: [GENERAL_REVIEW, "Is my second kick happening?", "Am I breathing too late or too high?", "Are my hips staying at the surface?", "Check my arm recovery and entry width"],
+};
+
+function fmt(sec: number) {
+  const m = Math.floor(sec / 60);
+  const s = Math.floor(sec % 60);
+  return `${m}:${String(s).padStart(2, "0")}`;
+}
 
 const STEPS = ["Uploading video", "Processing video", "Coach is watching", "Writing the review"];
 
@@ -74,15 +82,19 @@ const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 export default function NewSession({ onCreated }: { onCreated: (s: Session) => void }) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
+  const [duration, setDuration] = useState(0);
+  const [clip, setClip] = useState<[number, number]>([0, 0]);
+  const [stroke, setStroke] = useState("Not sure");
   const [prompt, setPrompt] = useState("");
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(0);
   const [pct, setPct] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const videoRef = useRef<HTMLVideoElement>(null);
 
   useEffect(() => {
-    if (!file) { setPreviewUrl(null); return; }
+    if (!file) { setPreviewUrl(null); setDuration(0); setClip([0, 0]); return; }
     const u = URL.createObjectURL(file);
     setPreviewUrl(u);
     return () => URL.revokeObjectURL(u);
@@ -102,12 +114,32 @@ export default function NewSession({ onCreated }: { onCreated: (s: Session) => v
     setFile(f);
   }
 
+  function onMeta() {
+    const d = videoRef.current?.duration || 0;
+    if (isFinite(d) && d > 0) { setDuration(d); setClip([0, d]); }
+  }
+
+  function setStart(v: number) {
+    const start = Math.min(v, Math.max(0, clip[1] - 2));
+    setClip([start, clip[1]]);
+    if (videoRef.current) videoRef.current.currentTime = start;
+  }
+  function setEnd(v: number) {
+    const end = Math.max(v, Math.min(duration, clip[0] + 2));
+    setClip([clip[0], end]);
+    if (videoRef.current) videoRef.current.currentTime = end;
+  }
+
+  const trimmed = duration > 0 && (clip[0] > 0.5 || clip[1] < duration - 0.5);
+
   async function run() {
     if (!file || busy) return;
     setBusy(true); setError(null); setStep(0); setPct(0);
     try {
       const mimeType = file.type || "video/mp4";
       const thumbPromise = makeThumb(file);
+      const clipStart = trimmed ? Math.floor(clip[0]) : undefined;
+      const clipEnd = trimmed ? Math.ceil(clip[1]) : undefined;
 
       const startRes = await fetch("/api/upload", {
         method: "POST",
@@ -138,24 +170,26 @@ export default function NewSession({ onCreated }: { onCreated: (s: Session) => v
       const aRes = await fetch("/api/analyze", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ fileUri: uri, mimeType, prompt }),
+        body: JSON.stringify({ fileUri: uri, mimeType, prompt, strokeHint: stroke, clipStart, clipEnd }),
       });
       const aText = await aRes.text();
       let aData: { analysis?: Analysis; error?: string } = {};
       try { aData = JSON.parse(aText); } catch {
         throw new Error("The coach took too long to answer. Google is slow right now — please try again in a minute.");
       }
-      if (!aRes.ok) throw new Error(aData.error || "Analysis failed.");
+      if (!aRes.ok || !aData.analysis) throw new Error(aData.error || "Analysis failed.");
       setStep(3);
 
-      const analysis = aData.analysis as Analysis;
-      const thumb = await thumbPromise;
+      const analysis = aData.analysis;
+      const id = newId();
+      const [thumb, hasLocalVideo] = await Promise.all([thumbPromise, putVideo(id, file)]);
       const title = prompt.trim() && prompt.trim() !== GENERAL_REVIEW
         ? prompt.trim().slice(0, 48)
         : `${analysis.stroke || "Swim"} review`;
 
       onCreated({
-        id: newId(), title, createdAt: Date.now(), fileName: file.name, fileUri: uri, mimeType, prompt, thumb, analysis, messages: [],
+        id, title, createdAt: Date.now(), fileName: file.name, fileUri: uri, mimeType, prompt,
+        strokeHint: stroke, clipStart, clipEnd, hasLocalVideo, thumb, analysis, messages: [],
       });
     } catch (e: unknown) {
       setError((e as Error).message || "Something went wrong.");
@@ -189,14 +223,34 @@ export default function NewSession({ onCreated }: { onCreated: (s: Session) => v
         </div>
       ) : (
         <div className="preview">
-          {previewUrl && <video src={previewUrl} controls playsInline />}
+          {previewUrl && <video ref={videoRef} src={previewUrl} controls playsInline onLoadedMetadata={onMeta} />}
           <div className="file-row">
             <b>{file.name}</b>
             <span className="mono">{(file.size / 1024 / 1024).toFixed(1)} MB</span>
             {!busy && <button onClick={() => setFile(null)}>Change</button>}
           </div>
+          {duration > 0 && (
+            <div className="trim">
+              <div className="trim-head">
+                <span className="eyebrow">Review only part of it</span>
+                <span className="mono">{fmt(clip[0])} – {fmt(clip[1])}{trimmed ? "" : " (whole clip)"}</span>
+              </div>
+              <div className="trim-rows">
+                <label>Start<input type="range" min={0} max={Math.floor(duration)} step={1} value={Math.floor(clip[0])} disabled={busy} onChange={(e) => setStart(Number(e.target.value))} /></label>
+                <label>End<input type="range" min={0} max={Math.ceil(duration)} step={1} value={Math.ceil(clip[1])} disabled={busy} onChange={(e) => setEnd(Number(e.target.value))} /></label>
+              </div>
+              <div className="hint">Drag to narrow the window to the lap that matters. The whole file still uploads, but the coach watches only this part — faster and cheaper.</div>
+            </div>
+          )}
         </div>
       )}
+
+      <label className="field">Which stroke?</label>
+      <div className="chips" style={{ marginTop: 8 }}>
+        {STROKES.map((st) => (
+          <button key={st} type="button" className={`chip ${stroke === st ? "on" : ""}`} disabled={busy} onClick={() => setStroke(st)}>{st}</button>
+        ))}
+      </div>
 
       <label className="field" htmlFor="prompt">What should the coach look at?</label>
       <textarea
@@ -208,8 +262,8 @@ export default function NewSession({ onCreated }: { onCreated: (s: Session) => v
         disabled={busy}
       />
       <div className="chips">
-        {SUGGESTIONS.map((s) => (
-          <button key={s} className="chip" type="button" disabled={busy} onClick={() => setPrompt(s)}>{s}</button>
+        {(SUGGESTIONS[stroke] || SUGGESTIONS["Not sure"]).map((q) => (
+          <button key={q} className="chip" type="button" disabled={busy} onClick={() => setPrompt(q)}>{q}</button>
         ))}
       </div>
 
@@ -227,7 +281,7 @@ export default function NewSession({ onCreated }: { onCreated: (s: Session) => v
           ))}
           {step === 0 && <div className="bar"><i style={{ width: `${pct}%` }} /></div>}
           <div className="hint">
-            {step === 2 ? "The coach watches the whole clip — usually 20 to 60 seconds." : "About a minute end to end."}
+            {step === 2 ? "The coach watches the whole clip — usually 20 to 60 seconds. If Google is busy it quietly tries a second model." : "About a minute end to end."}
           </div>
         </div>
       )}

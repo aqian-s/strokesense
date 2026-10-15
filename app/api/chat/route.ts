@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { generate, COACH_SYSTEM, type Content } from "@/lib/gemini";
+import { generate, videoPart, COACH_SYSTEM, type Content } from "@/lib/gemini";
 
 export const runtime = "nodejs";
 export const maxDuration = 300;
@@ -8,8 +8,8 @@ type Msg = { role: "user" | "assistant"; text: string };
 
 export async function POST(req: Request) {
   try {
-    const { fileUri, mimeType, prompt, analysis, messages } = (await req.json()) as {
-      fileUri: string; mimeType: string; prompt: string; analysis: unknown; messages: Msg[];
+    const { fileUri, mimeType, prompt, analysis, messages, clipStart, clipEnd } = (await req.json()) as {
+      fileUri: string; mimeType: string; prompt: string; analysis: unknown; messages: Msg[]; clipStart?: number; clipEnd?: number;
     };
     if (!messages?.length) return NextResponse.json({ error: "No message" }, { status: 400 });
 
@@ -20,7 +20,7 @@ export async function POST(req: Request) {
       `suggest drills and progressions, and keep answers focused and reasonably short. Use plain text with short paragraphs or simple dashes for lists; no markdown headers.`;
 
     const contents: Content[] = [
-      { role: "user", parts: [{ fileData: { fileUri, mimeType } }, { text: intro }] },
+      { role: "user", parts: [videoPart(fileUri, mimeType, clipStart, clipEnd), { text: intro }] },
       { role: "model", parts: [{ text: "Understood. I have the video and my analysis in front of me. What would you like to go over?" }] },
       ...messages.map((m) => ({ role: (m.role === "user" ? "user" : "model") as "user" | "model", parts: [{ text: m.text }] })),
     ];
