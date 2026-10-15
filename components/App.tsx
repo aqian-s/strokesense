@@ -5,16 +5,32 @@ import { loadSessions, saveSessions, type Session } from "@/lib/storage";
 import NewSession from "./NewSession";
 import SessionView from "./SessionView";
 
+const THEME_KEY = "strokesense.theme";
+
 export default function App() {
   const [sessions, setSessions] = useState<Session[]>([]);
   const [activeId, setActiveId] = useState<string | null>(null);
   const [menuOpen, setMenuOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
+  const [dark, setDark] = useState(false);
 
   useEffect(() => {
     setSessions(loadSessions());
     setLoaded(true);
+    try {
+      setDark(localStorage.getItem(THEME_KEY) === "dark");
+    } catch {}
   }, []);
+
+  function toggleTheme() {
+    const next = !dark;
+    setDark(next);
+    try {
+      localStorage.setItem(THEME_KEY, next ? "dark" : "light");
+    } catch {}
+    if (next) document.documentElement.setAttribute("data-theme", "dark");
+    else document.documentElement.removeAttribute("data-theme");
+  }
 
   function persist(next: Session[]) {
     setSessions(next);
@@ -39,60 +55,61 @@ export default function App() {
       <div className={`backdrop ${menuOpen ? "show" : ""}`} onClick={() => setMenuOpen(false)} />
       <aside className={`sidebar ${menuOpen ? "open" : ""}`}>
         <div className="brand">
-          <div className="logo">S</div>
-          <div>
-            <strong>StrokeSense</strong>
-            <small>AI swim technique coach</small>
-          </div>
+          <span className="mark" />
+          <span className="word">StrokeSense</span>
         </div>
+        <div className="tag">swim technique, reviewed</div>
+
         <button className="new-btn" onClick={() => { setActiveId(null); setMenuOpen(false); }}>
-          + New analysis
+          New review <span>+</span>
         </button>
+
         <div className="session-list">
-          <div className="label">Saved on this device</div>
+          <span className="eyebrow">Saved on this device</span>
           {loaded && sessions.length === 0 && (
-            <div className="empty-side">No sessions yet. Upload a video to get started.</div>
+            <div className="empty-side">Nothing yet. Reviews you run will show up here.</div>
           )}
           {sessions.map((s) => (
-            <button
+            <div
               key={s.id}
+              role="button"
+              tabIndex={0}
               className={`session-item ${s.id === activeId ? "active" : ""}`}
               onClick={() => { setActiveId(s.id); setMenuOpen(false); }}
+              onKeyDown={(e) => { if (e.key === "Enter") { setActiveId(s.id); setMenuOpen(false); } }}
             >
-              {s.thumb ? <img className="thumb" src={s.thumb} alt="" /> : <div className="thumb empty">🏊</div>}
+              {s.thumb ? <img className="thumb" src={s.thumb} alt="" /> : <div className="thumb">—</div>}
               <div className="meta">
                 <b>{s.title}</b>
                 <span>
                   {new Date(s.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   {" · "}
-                  {s.analysis?.stroke || "Analyzing"}
+                  {s.analysis?.stroke || "pending"}
                 </span>
               </div>
-              <span
-                className="del"
-                role="button"
-                title="Delete"
-                onClick={(e) => { e.stopPropagation(); remove(s.id); }}
-              >
-                ×
-              </span>
-            </button>
+              <button className="del" title="Delete" onClick={(e) => { e.stopPropagation(); remove(s.id); }}>×</button>
+            </div>
           ))}
+        </div>
+
+        <div className="side-foot">
+          <button className="theme-toggle" onClick={toggleTheme} aria-label="Toggle dark mode">
+            <span className="sw" />
+            {dark ? "Dark" : "Light"}
+          </button>
         </div>
       </aside>
 
       <div className="main">
         <div className="topbar">
-          <button className="menu-btn" onClick={() => setMenuOpen(true)} aria-label="Open menu">☰</button>
-          <h1>{active ? active.title : "New analysis"}</h1>
+          <button className="icon-btn menu-btn" onClick={() => setMenuOpen(true)} aria-label="Open menu">≡</button>
+          <div className="title">{active ? active.title : "New review"}</div>
         </div>
         <div className="content">
           {active ? (
             <SessionView key={active.id} session={active} onChange={upsert} />
           ) : (
-            <NewSession
-              onCreated={(s) => { upsert(s); setActiveId(s.id); }}
-            />
+            <NewSession onCreated={(s) => { upsert(s); setActiveId(s.id); }} />
           )}
         </div>
       </div>

@@ -77,17 +77,20 @@ export const COACH_SYSTEM = `You are StrokeSense, an expert competitive swimming
 You are watching a video of a swimmer. Be specific, honest and encouraging. Reference what you actually see
 (timestamps, body position, arm path, kick, breathing, head position, rotation, timing) rather than generic advice.
 If the video quality, angle, or length limits what you can judge, say so briefly and work with what is visible.
-Never invent details you cannot see. Keep language clear for a swimmer or parent, not a scientist.`;
+Never invent details you cannot see. Keep language clear for a swimmer or parent, not a scientist.
+Do not manufacture problems: if the swimming is technically sound for the swimmer's level, say so, set noMajorIssues to true,
+leave issues empty (or include only genuinely minor refinements marked "low"), and still offer useful drills for maintenance or speed.`;
 
 export const ANALYSIS_SCHEMA = {
   type: "object",
   properties: {
     stroke: { type: "string", description: "Stroke being swum, e.g. Freestyle, Backstroke, Breaststroke, Butterfly, or Unclear" },
     summary: { type: "string", description: "2-3 sentence overall assessment" },
+    noMajorIssues: { type: "boolean", description: "true when there is nothing significant to fix at this swimmer's level" },
     strengths: { type: "array", items: { type: "string" }, description: "2-4 things the swimmer does well" },
     issues: {
       type: "array",
-      description: "Technique problems, most important first. 2-5 items.",
+      description: "Technique problems, most important first. 0-5 items. Empty if nothing significant is wrong.",
       items: {
         type: "object",
         properties: {
@@ -128,5 +131,5 @@ export const ANALYSIS_SCHEMA = {
       },
     },
   },
-  required: ["stroke", "summary", "strengths", "issues", "drills", "plan"],
+  required: ["stroke", "summary", "noMajorIssues", "strengths", "issues", "drills", "plan"],
 };

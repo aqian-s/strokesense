@@ -15,6 +15,7 @@ export async function POST(req: Request) {
 
     const intro = `Here is the swimmer's video. Their original request: "${prompt || "general technique review"}".\n` +
       `You already produced this analysis (JSON):\n${JSON.stringify(analysis)}\n\n` +
+      `If the analysis found no major issues and the swimmer now asks you to look deeper at something specific, re-watch the video with that single focus and report even small refinements, with timestamps where possible. ` +
       `Continue as their coach. Answer follow-up questions, look back at the video when asked about specific moments, ` +
       `suggest drills and progressions, and keep answers focused and reasonably short. Use plain text with short paragraphs or simple dashes for lists; no markdown headers.`;
 

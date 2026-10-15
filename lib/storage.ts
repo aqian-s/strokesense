@@ -5,6 +5,7 @@ export type Drill = { name: string; targets: string; how: string; sets: string }
 export type Analysis = {
   stroke: string;
   summary: string;
+  noMajorIssues?: boolean;
   strengths: string[];
   issues: Issue[];
   drills: Drill[];
