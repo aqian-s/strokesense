@@ -94,8 +94,8 @@ export default function NewSession({ onCreated }: { onCreated: (s: Session) => v
       setError("Please choose a video file (MP4 or MOV work best).");
       return;
     }
-    if (f.size > 300 * 1024 * 1024) {
-      setError("That video is over 300 MB. Trim it to a shorter clip — 15 to 45 seconds is ideal.");
+    if (f.size > 2000 * 1024 * 1024) {
+      setError("That video is over 2 GB. Please trim it down.");
       return;
     }
     setFile(f);
@@ -121,7 +121,7 @@ export default function NewSession({ onCreated }: { onCreated: (s: Session) => v
 
       let uri = uploaded.uri;
       let state = uploaded.state;
-      const deadline = Date.now() + 5 * 60 * 1000;
+      const deadline = Date.now() + 20 * 60 * 1000;
       while (state !== "ACTIVE") {
         if (state === "FAILED") throw new Error("Google could not process this video. Try re-exporting it as MP4.");
         if (Date.now() > deadline) throw new Error("Video processing timed out. Try a shorter clip.");
