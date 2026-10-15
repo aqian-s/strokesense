@@ -90,7 +90,7 @@ h1, h2, h3 { font-weight: 500; margin: 0; }
 .brand { display: flex; align-items: baseline; gap: 10px; padding: 22px 20px 6px; }
 .brand .word { font-family: var(--serif); font-size: 20px; letter-spacing: -0.01em; }
 .brand .mark { width: 10px; height: 10px; border-radius: 50%; background: var(--accent); align-self: center; }
-.brand .tag { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 0 20px 14px; letter-spacing: .04em; }
+.sidebar .tag { font-family: var(--mono); font-size: 11px; color: var(--muted); padding: 0 20px 14px; letter-spacing: .04em; }
 
 .new-btn {
   margin: 4px 14px 16px; padding: 10px 14px; border-radius: 8px; border: 1px solid var(--ink);
