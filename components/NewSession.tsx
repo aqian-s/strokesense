@@ -48,24 +48,33 @@ async function makeThumb(file: File): Promise<string | undefined> {
   });
 }
 
-function uploadBytes(url: string, file: File, onProgress: (pct: number) => void) {
-  return new Promise<{ name: string; uri: string; mimeType: string; state: string }>((resolve, reject) => {
-    const xhr = new XMLHttpRequest();
-    xhr.open("POST", url, true);
-    xhr.setRequestHeader("X-Goog-Upload-Offset", "0");
-    xhr.setRequestHeader("X-Goog-Upload-Command", "upload, finalize");
-    xhr.upload.onprogress = (e) => { if (e.lengthComputable) onProgress(Math.round((e.loaded / e.total) * 100)); };
-    xhr.onerror = () => reject(new Error("Upload failed (network). Try a smaller clip or a different browser."));
-    xhr.onload = () => {
-      if (xhr.status >= 200 && xhr.status < 300) {
-        try { resolve(JSON.parse(xhr.responseText).file); }
-        catch { reject(new Error("Upload finished but the response was unreadable.")); }
-      } else {
-        reject(new Error(`Upload rejected (${xhr.status}): ${xhr.responseText.slice(0, 200)}`));
-      }
-    };
-    xhr.send(file);
-  });
+// Google's resumable uploads want chunk sizes in multiples of 256 KB.
+const CHUNK = 14 * 256 * 1024; // 3.5 MB — under Vercel's request-size limit
+
+async function uploadBytes(uploadUrl: string, file: File, onProgress: (pct: number) => void) {
+  let offset = 0;
+  while (true) {
+    const end = Math.min(offset + CHUNK, file.size);
+    const last = end >= file.size;
+    const res = await fetch("/api/chunk", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/octet-stream",
+        "x-upload-url": uploadUrl,
+        "x-upload-offset": String(offset),
+        "x-upload-last": last ? "1" : "0",
+      },
+      body: file.slice(offset, end),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Upload failed.");
+    offset = end;
+    onProgress(Math.round((offset / file.size) * 100));
+    if (last) {
+      if (!data.file?.name) throw new Error("Upload finished but no file was returned.");
+      return data.file as { name: string; uri: string; mimeType: string; state: string };
+    }
+  }
 }
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
