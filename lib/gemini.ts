@@ -48,6 +48,36 @@ export async function getFile(name: string) {
 type Part = { text?: string; fileData?: { fileUri: string; mimeType: string } };
 export type Content = { role: "user" | "model"; parts: Part[] };
 
+// Models to try, in order. The first is whatever GEMINI_MODEL is set to.
+function modelCandidates(): string[] {
+  const list = [modelName(), "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.8-flash"];
+  return list.filter((m, i) => list.indexOf(m) === i);
+}
+
+const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
+
+async function callModel(model: string, body: Record<string, unknown>) {
+  const res = await fetch(`${BASE}/v1beta/models/${model}:generateContent`, {
+    method: "POST",
+    headers: { "x-goog-api-key": apiKey(), "Content-Type": "application/json" },
+    body: JSON.stringify(body),
+  });
+  if (!res.ok) {
+    const err = new Error(`Gemini error (${res.status}): ${await res.text()}`) as Error & { status?: number };
+    err.status = res.status;
+    throw err;
+  }
+  const data = await res.json();
+  const text: string =
+    data?.candidates?.[0]?.content?.parts?.map((p: Part) => p.text ?? "").join("") ?? "";
+  if (!text) throw new Error("Gemini returned an empty response.");
+  return text;
+}
+
+/**
+ * Calls Gemini. On "busy" errors (503 / 429 / 500) it waits briefly and retries,
+ * then falls back to the next model, so a demand spike on one model is invisible to the user.
+ */
 export async function generate(opts: {
   system: string;
   contents: Content[];
@@ -62,17 +92,31 @@ export async function generate(opts: {
       ...(opts.json ? { responseMimeType: "application/json", responseSchema: opts.schema } : {}),
     },
   };
-  const res = await fetch(`${BASE}/v1beta/models/${modelName()}:generateContent`, {
-    method: "POST",
-    headers: { "x-goog-api-key": apiKey(), "Content-Type": "application/json" },
-    body: JSON.stringify(body),
-  });
-  if (!res.ok) throw new Error(`Gemini error (${res.status}): ${await res.text()}`);
-  const data = await res.json();
-  const text: string =
-    data?.candidates?.[0]?.content?.parts?.map((p: Part) => p.text ?? "").join("") ?? "";
-  if (!text) throw new Error("Gemini returned an empty response.");
-  return text;
+
+  const started = Date.now();
+  const budgetMs = 230_000; // stay under the 300s function limit
+  let lastErr: Error | null = null;
+
+  for (const model of modelCandidates()) {
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (Date.now() - started > budgetMs) break;
+      try {
+        return await callModel(model, body);
+      } catch (e: unknown) {
+        const err = e as Error & { status?: number };
+        lastErr = err;
+        const busy = err.status === 503 || err.status === 429 || err.status === 500;
+        const unknownModel = err.status === 404;
+        if (unknownModel) break; // model name not valid for this key — try the next one
+        if (!busy) throw err; // real error (bad request, expired file, etc.)
+        await sleep(attempt === 0 ? 4000 : 10000);
+      }
+    }
+  }
+  if (lastErr && /503|429|500/.test(lastErr.message)) {
+    throw new Error("Google's models are all busy right now. Please try again in a minute.");
+  }
+  throw lastErr ?? new Error("No model answered.");
 }
 
 export const COACH_SYSTEM = `You are StrokeSense, an expert competitive swimming coach and biomechanics analyst.

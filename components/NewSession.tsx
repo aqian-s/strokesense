@@ -140,7 +140,11 @@ export default function NewSession({ onCreated }: { onCreated: (s: Session) => v
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fileUri: uri, mimeType, prompt }),
       });
-      const aData = await aRes.json();
+      const aText = await aRes.text();
+      let aData: { analysis?: Analysis; error?: string } = {};
+      try { aData = JSON.parse(aText); } catch {
+        throw new Error("The coach took too long to answer. Google is slow right now — please try again in a minute.");
+      }
       if (!aRes.ok) throw new Error(aData.error || "Analysis failed.");
       setStep(3);
 

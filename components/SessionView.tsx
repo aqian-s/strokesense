@@ -47,8 +47,12 @@ export default function SessionView({ session, onChange }: { session: Session; o
           messages: withUser.messages.map((m) => ({ role: m.role, text: m.text })),
         }),
       });
-      const data = await res.json();
-      if (!res.ok) throw new Error(data.error || "The coach didn't answer.");
+      const raw = await res.text();
+      let data: { reply?: string; error?: string } = {};
+      try { data = JSON.parse(raw); } catch {
+        throw new Error("The coach took too long to answer. Please try again in a minute.");
+      }
+      if (!res.ok || !data.reply) throw new Error(data.error || "The coach didn't answer.");
       onChange({ ...withUser, messages: [...withUser.messages, { role: "assistant", text: data.reply, at: Date.now() }] });
     } catch (e: unknown) {
       setError((e as Error).message);
