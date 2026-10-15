@@ -2,7 +2,7 @@ import { NextResponse } from "next/server";
 import { generate, COACH_SYSTEM, type Content } from "@/lib/gemini";
 
 export const runtime = "nodejs";
-export const maxDuration = 60;
+export const maxDuration = 300;
 
 type Msg = { role: "user" | "assistant"; text: string };
 
