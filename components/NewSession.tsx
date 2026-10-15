@@ -79,13 +79,13 @@ function uploadBytes(url: string, file: File, onProgress: (pct: number) => void)
 
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
-export default function NewSession({ onCreated }: { onCreated: (s: Session) => void }) {
+export default function NewSession({ onCreated, initialPrompt }: { onCreated: (s: Session) => void; initialPrompt?: string }) {
   const [file, setFile] = useState<File | null>(null);
   const [previewUrl, setPreviewUrl] = useState<string | null>(null);
   const [duration, setDuration] = useState(0);
   const [clip, setClip] = useState<[number, number]>([0, 0]);
   const [stroke, setStroke] = useState("Not sure");
-  const [prompt, setPrompt] = useState("");
+  const [prompt, setPrompt] = useState(initialPrompt ?? "");
   const [over, setOver] = useState(false);
   const [busy, setBusy] = useState(false);
   const [step, setStep] = useState(0);

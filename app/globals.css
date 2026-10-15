@@ -316,3 +316,26 @@ textarea.prompt:focus { border-color: var(--accent); }
   .drill, .issue { break-inside: avoid; }
   .ts-link { background: none; padding: 0; color: #000; }
 }
+
+/* ---------- landing + chat mode ---------- */
+.cards { display: grid; grid-template-columns: repeat(auto-fit, minmax(260px, 1fr)); gap: 14px; margin-top: 8px; }
+.card-pick {
+  text-align: left; padding: 22px 22px 20px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface);
+  display: flex; flex-direction: column; gap: 8px; transition: border-color .15s, transform .15s;
+}
+.card-pick:hover { border-color: var(--accent); transform: translateY(-1px); }
+.card-glyph { width: 40px; height: 40px; border-radius: 50%; border: 1px solid var(--line-strong); display: grid; place-items: center; color: var(--accent); margin-bottom: 6px; }
+.card-title { font-family: var(--serif); font-size: 22px; }
+.card-desc { color: var(--ink-2); font-size: 14px; line-height: 1.5; flex: 1; }
+.card-cta { color: var(--accent-ink); font-size: 13.5px; font-weight: 500; margin-top: 6px; }
+
+.chat-page .chat { min-height: 200px; }
+.chat-head { display: flex; justify-content: space-between; align-items: flex-end; gap: 14px; flex-wrap: wrap; margin-bottom: 18px; }
+.chat-tools { display: flex; gap: 8px; flex-wrap: wrap; }
+select.tool { appearance: auto; }
+.context-box { margin-bottom: 16px; padding: 14px 16px; border: 1px solid var(--line); border-radius: var(--r); background: var(--surface); }
+.context-box textarea { width: 100%; margin-top: 8px; padding: 10px 12px; border-radius: 8px; border: 1px solid var(--line); background: var(--bg); resize: vertical; outline: none; }
+.context-box textarea:focus { border-color: var(--accent); }
+.notice.small { font-size: 13px; padding: 8px 12px; margin-bottom: 14px; }
+.starters { display: grid; gap: 14px; margin-bottom: 10px; }
+.bridge { display: flex; justify-content: space-between; align-items: center; gap: 12px; flex-wrap: wrap; margin-top: 26px; padding-top: 16px; border-top: 1px dashed var(--line); color: var(--muted); font-size: 13.5px; }

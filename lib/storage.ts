@@ -15,6 +15,9 @@ export type Message = { role: "user" | "assistant"; text: string; at: number };
 export type Comparison = { withId: string; withTitle: string; text: string; at: number };
 export type Session = {
   id: string;
+  kind?: "video" | "chat"; // undefined = video (older sessions)
+  context?: string; // chat sessions: who the swimmer is (level, goals, pool)
+  refReviewId?: string; // chat sessions: a saved video review the coach can refer to
   title: string;
   createdAt: number;
   fileName: string;

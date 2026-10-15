@@ -6,6 +6,8 @@ import { deleteVideo } from "@/lib/videoStore";
 import { EXAMPLE_SESSIONS, EXAMPLES_SEEDED_KEY } from "@/lib/examples";
 import NewSession from "./NewSession";
 import SessionView from "./SessionView";
+import ChatSession from "./ChatSession";
+import Landing from "./Landing";
 
 const THEME_KEY = "strokesense.theme";
 
@@ -15,6 +17,8 @@ export default function App() {
   const [menuOpen, setMenuOpen] = useState(false);
   const [loaded, setLoaded] = useState(false);
   const [dark, setDark] = useState(false);
+  const [mode, setMode] = useState<"landing" | "video" | "chat">("landing");
+  const [prefill, setPrefill] = useState("");
 
   useEffect(() => {
     let list = loadSessions();
@@ -72,8 +76,8 @@ export default function App() {
         </div>
         <div className="tag">swim technique, reviewed</div>
 
-        <button className="new-btn" onClick={() => { setActiveId(null); setMenuOpen(false); }}>
-          New review <span>+</span>
+        <button className="new-btn" onClick={() => { setActiveId(null); setMode("landing"); setMenuOpen(false); }}>
+          New <span>+</span>
         </button>
 
         <div className="session-list">
@@ -90,14 +94,14 @@ export default function App() {
               onClick={() => { setActiveId(s.id); setMenuOpen(false); }}
               onKeyDown={(e) => { if (e.key === "Enter") { setActiveId(s.id); setMenuOpen(false); } }}
             >
-              {s.thumb ? <img className="thumb" src={s.thumb} alt="" /> : <div className="thumb">—</div>}
+              {s.thumb ? <img className="thumb" src={s.thumb} alt="" /> : <div className="thumb">{s.kind === "chat" ? "💬" : "—"}</div>}
               <div className="meta">
                 <b>{s.title}</b>
                 <span>
                   {s.example ? "sample · " : ""}
                   {new Date(s.createdAt).toLocaleDateString(undefined, { month: "short", day: "numeric" })}
                   {" · "}
-                  {s.analysis?.stroke || "pending"}
+                  {s.kind === "chat" ? "chat" : s.analysis?.stroke || "pending"}
                 </span>
               </div>
               <button className="del" title="Delete" onClick={(e) => { e.stopPropagation(); remove(s.id); }}>×</button>
@@ -116,13 +120,33 @@ export default function App() {
       <div className="main">
         <div className="topbar">
           <button className="icon-btn menu-btn" onClick={() => setMenuOpen(true)} aria-label="Open menu">≡</button>
-          <div className="title">{active ? active.title : "New review"}</div>
+          <div className="title">{active ? active.title : mode === "video" ? "New review" : mode === "chat" ? "Coach chat" : "Start"}</div>
         </div>
         <div className="content">
-          {active ? (
+          {active && active.kind === "chat" ? (
+            <ChatSession
+              key="chat"
+              session={active}
+              sessions={sessions}
+              onCreated={(s) => { upsert(s); setActiveId(s.id); }}
+              onChange={upsert}
+              onReviewVideo={(q) => { setPrefill(q); setActiveId(null); setMode("video"); }}
+            />
+          ) : active ? (
             <SessionView key={active.id} session={active} sessions={sessions} onChange={upsert} />
+          ) : mode === "video" ? (
+            <NewSession initialPrompt={prefill} onCreated={(s) => { upsert(s); setActiveId(s.id); setPrefill(""); }} />
+          ) : mode === "chat" ? (
+            <ChatSession
+              key="chat"
+              session={null}
+              sessions={sessions}
+              onCreated={(s) => { upsert(s); setActiveId(s.id); }}
+              onChange={upsert}
+              onReviewVideo={(q) => { setPrefill(q); setMode("video"); }}
+            />
           ) : (
-            <NewSession onCreated={(s) => { upsert(s); setActiveId(s.id); }} />
+            <Landing onPick={setMode} />
           )}
         </div>
       </div>
